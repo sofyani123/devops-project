@@ -1,0 +1,61 @@
+# .github/workflows/main.yml
+name: Build, Push & Deploy to ECS Fargate
+
+# Configure when the workflow runs: on pushes to the 'main' branch
+on:
+  push:
+    branches:
+      - main
+
+# Define the jobs to be executed in the workflow
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest # Use a standard Ubuntu runner provided by GitHub Actions
+
+    # Define environment variables for the job
+    env:
+      ECR_REPOSITORY: my-flask-app # Name of your ECR repository
+      ECS_SERVICE_NAME: my-flask-app-service # Name of your ECS service
+      ECS_CLUSTER_NAME: my-devops-project-cluster # Name of your ECS cluster
+      AWS_REGION: ${{ secrets.AWS_REGION }} # AWS region from GitHub Secrets
+
+    steps:
+      # Step 1: Checkout the code from your repository
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Step 2: Configure AWS credentials for GitHub Actions
+      # This action sets up environment variables for AWS CLI and SDKs.
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }} # Use the environment variable for region
+
+      # Step 3: Login to Amazon ECR
+      # This uses the AWS CLI to get authentication token for ECR and logs Docker into ECR.
+      - name: Login to Amazon ECR
+        id: login-ecr # Assign an ID to this step to reference its outputs
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # Step 4: Build the Docker image
+      # The '.' indicates that the Dockerfile is in the current directory (project root).
+      # The image is tagged with the ECR repository URL and 'latest' tag.
+      - name: Build Docker image
+        run: docker build -t ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest .
+
+      # Step 5: Push the Docker image to Amazon ECR
+      # Pushes the locally built and tagged image to your ECR repository.
+      - name: Push Docker image to ECR
+        run: docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
+
+      # Step 6: Deploy to Amazon ECS
+      # This command forces a new deployment for the ECS service.
+      # ECS will then pull the 'latest' image from ECR and restart tasks with the new image.
+      - name: Force new ECS deployment
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER_NAME }} \
+            --service ${{ env.ECS_SERVICE_NAME }} \
+            --force-new-deployment
