@@ -3,6 +3,31 @@ provider "aws" {
   region = "us-east-1" # US East 1 region
 }
 
+# Data source to fetch the ACM certificate by its domain name
+data "aws_acm_certificate" "issued_cert" {
+ domain = "devops-project1.click"
+ statuses = ["ISSUED"]
+ most_recent = true
+}
+
+# ALB Listener (HTTPS on port 443)
+# Listens for incoming HTTPS requests and forwards them to the target group.
+resource "aws_lb_listener" "https_listener" {
+ load_balancer_arn = aws_lb.my_app_alb.arn
+ port = 443
+ protocol = "HTTPS"
+ certificate_arn = data.aws_acm_certificate.issued_cert.arn # Reference the issued ACM certificate
+
+ default_action {
+ target_group_arn = aws_lb_target_group.my_flask_app_tg.arn
+ type = "forward"
+ }
+
+ tags = {
+ Name = "my-devops-project-https-listener"
+ }
+}
+
 # Create a new Virtual Private Cloud (VPC)
 resource "aws_vpc" "my_app_vpc" {
   cidr_block           = "10.0.0.0/16"
@@ -282,8 +307,13 @@ resource "aws_lb_listener" "http_listener" {
   protocol          = "HTTP"
 
   default_action {
-    target_group_arn = aws_lb_target_group.my_flask_app_tg.arn
-    type             = "forward"
+    type = "redirect"
+    redirect {
+      port = "443"
+      protocol = "HTTPS"
+      status_code = "HTTP_301"
+      # Permanent redirect
+    }
   }
 
   tags = {

@@ -1,6 +1,6 @@
-# terraform/outputs.tf
+# terraform/outputs.tf (Updated content)
 
-output "alb_dns_name" {
-  description = "The DNS name of the Application Load Balancer"
-  value       = aws_lb.my_app_alb.dns_name
+output "custom_domain_url" {
+ description = "The URL of your application via custom domain (HTTPS)"
+ value = "devops-project1.click"
 }
