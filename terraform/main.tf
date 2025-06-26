@@ -1,6 +1,6 @@
 # Define the AWS provider and specify the region
 provider "aws" {
-  region = "us-east-1" # US East 1 region
+  region = var.aws_region # US East 1 region
 }
 
 # Data source to fetch the ACM certificate by its domain name
@@ -66,6 +66,27 @@ resource "aws_internet_gateway" "my_app_igw" {
   }
 }
 
+# Attach policy to ECS Task Role to allow reading the RDS credentials secret
+resource "aws_iam_role_policy" "ecs_task_role_secrets_policy" {
+  name = "my-devops-project-ecs-task-role-secrets-policy"
+  role = aws_iam_role.ecs_task_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:DescribeSecret",
+        ]
+        # Restrict to the specific secret using its ARN from secrets.tf output
+        Resource = aws_secretsmanager_secret.rds_credentials.arn # Assumes secrets.tf is defined
+      },
+    ]
+  })
+}
+
 # Create a Route Table and associate it with the subnet
 resource "aws_route_table" "my_app_route_table" {
   vpc_id = aws_vpc.my_app_vpc.id
@@ -98,6 +119,14 @@ resource "aws_security_group" "my_alb_sg" {
     description = "HTTP from anywhere"
     from_port   = 80
     to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+    ingress {
+    description = "HTTPS from anywhere"
+    from_port   = 443
+    to_port     = 443
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -226,35 +255,49 @@ resource "aws_ecs_task_definition" "my_flask_app_task" {
   # Fargate launch type compatibility
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
-  cpu                      = "256" # 0.25 vCPU
-  memory                   = "512" # 0.5 GB
+  cpu                      = "256"
+  memory                   = "512"
   execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
-  task_role_arn            = aws_iam_role.ecs_task_role.arn # Optional, but good practice
+  task_role_arn            = aws_iam_role.ecs_task_role.arn
 
   container_definitions = jsonencode([
     {
-      name        = "my-flask-app"
-      image       = "${aws_ecr_repository.my_flask_app_ecr.repository_url}:latest" # Referencing ECR repo from ecr.tf
-      cpu         = 256
-      memory      = 512
-      essential   = true
+      name  = "my-flask-app",
+      image = "${aws_ecr_repository.my_flask_app_ecr.repository_url}:latest",
+      cpu   = 256,
+      memory = 512,
+      essential = true,
       portMappings = [
         {
-          containerPort = 5000 # Flask app's port
-          hostPort      = 5000 # Not used by Fargate, but required
+          containerPort = 5000,
+          hostPort      = 5000,
           protocol      = "tcp"
         }
-      ]
+      ],
       logConfiguration = {
-        logDriver = "awslogs"
+        logDriver = "awslogs",
         options = {
-          "awslogs-group"       = aws_cloudwatch_log_group.my_flask_app_log_group.name
-          "awslogs-region"      = "us-east-1"
+          "awslogs-group"        = aws_cloudwatch_log_group.my_flask_app_log_group.name,
+          "awslogs-region"       = var.aws_region,
           "awslogs-stream-prefix" = "ecs"
         }
-      }
+      },
+      environment = [
+        {
+          name  = "DB_SECRET_NAME",
+          value = aws_secretsmanager_secret.rds_credentials.name
+        },
+        {
+          name  = "AWS_REGION",
+          value = var.aws_region
+        }
+      ]
     }
   ])
+
+  depends_on = [
+    aws_iam_role_policy.ecs_task_role_secrets_policy
+  ]
 
   tags = {
     Name = "my-flask-app-task-definition"
