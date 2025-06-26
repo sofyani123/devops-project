@@ -54,7 +54,6 @@ resource "aws_db_instance" "my_app_db_instance" {
     instance_class          = "db.t3.micro"
     identifier              = "my-flask-app-db-instance"
     username                = "admin"
-    password                = "Password123!"
     db_subnet_group_name    = aws_db_subnet_group.my_app_db_subnet_group.name
     vpc_security_group_ids  = [aws_security_group.my_app_db_sg.id]
     skip_final_snapshot     = true
