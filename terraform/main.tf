@@ -3,31 +3,6 @@ provider "aws" {
   region = var.aws_region # US East 1 region
 }
 
-# Data source to fetch the ACM certificate by its domain name
-data "aws_acm_certificate" "issued_cert" {
- domain = "devops-project1.click"
- statuses = ["ISSUED"]
- most_recent = true
-}
-
-# ALB Listener (HTTPS on port 443)
-# Listens for incoming HTTPS requests and forwards them to the target group.
-resource "aws_lb_listener" "https_listener" {
- load_balancer_arn = aws_lb.my_app_alb.arn
- port = 443
- protocol = "HTTPS"
- certificate_arn = data.aws_acm_certificate.issued_cert.arn # Reference the issued ACM certificate
-
- default_action {
- target_group_arn = aws_lb_target_group.my_flask_app_tg.arn
- type = "forward"
- }
-
- tags = {
- Name = "my-devops-project-https-listener"
- }
-}
-
 # Create a new Virtual Private Cloud (VPC)
 resource "aws_vpc" "my_app_vpc" {
   cidr_block           = "10.0.0.0/16"
@@ -42,7 +17,7 @@ resource "aws_subnet" "my_app_subnet_a" {
   vpc_id                  = aws_vpc.my_app_vpc.id
   cidr_block              = "10.0.3.0/24"
   availability_zone       = "us-east-1a" # Specify an availability zone
-  map_public_ip_on_launch = true # Automatically assign public IPs
+  map_public_ip_on_launch = true         # Automatically assign public IPs
   tags = {
     Name = "my-devops-project-subnet-a"
   }
@@ -52,7 +27,7 @@ resource "aws_subnet" "my_app_subnet_b" {
   vpc_id                  = aws_vpc.my_app_vpc.id
   cidr_block              = "10.0.4.0/24"
   availability_zone       = "us-east-1b" # Specify an availability zone
-  map_public_ip_on_launch = true # Automatically assign public IPs
+  map_public_ip_on_launch = true         # Automatically assign public IPs
   tags = {
     Name = "my-devops-project-subnet-b"
   }
@@ -123,7 +98,7 @@ resource "aws_security_group" "my_alb_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-    ingress {
+  ingress {
     description = "HTTPS from anywhere"
     from_port   = 443
     to_port     = 443
@@ -152,10 +127,10 @@ resource "aws_security_group" "my_ecs_tasks_sg" {
   vpc_id      = aws_vpc.my_app_vpc.id
 
   ingress {
-    description     = "Allow traffic from ALB"
-    from_port       = 5000
-    to_port         = 5000
-    protocol        = "tcp"
+    description = "Allow traffic from ALB"
+    from_port   = 5000
+    to_port     = 5000
+    protocol    = "tcp"
     # Allow traffic only from the ALB's security group
     security_groups = [aws_security_group.my_alb_sg.id]
   }
@@ -183,8 +158,8 @@ resource "aws_iam_role" "ecs_task_execution_role" {
     Version = "2012-10-17"
     Statement = [
       {
-        Action    = "sts:AssumeRole"
-        Effect    = "Allow"
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
         Principal = {
           Service = "ecs-tasks.amazonaws.com"
         }
@@ -213,8 +188,8 @@ resource "aws_iam_role" "ecs_task_role" {
     Version = "2012-10-17"
     Statement = [
       {
-        Action    = "sts:AssumeRole"
-        Effect    = "Allow"
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
         Principal = {
           Service = "ecs-tasks.amazonaws.com"
         }
@@ -251,7 +226,7 @@ resource "aws_cloudwatch_log_group" "my_flask_app_log_group" {
 # ECS Task Definition for our Flask application
 # This defines our application container, its resources, and networking.
 resource "aws_ecs_task_definition" "my_flask_app_task" {
-  family                   = "my-flask-app-task"
+  family = "my-flask-app-task"
   # Fargate launch type compatibility
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
@@ -262,10 +237,10 @@ resource "aws_ecs_task_definition" "my_flask_app_task" {
 
   container_definitions = jsonencode([
     {
-      name  = "my-flask-app",
-      image = "${aws_ecr_repository.my_flask_app_ecr.repository_url}:latest",
-      cpu   = 256,
-      memory = 512,
+      name      = "my-flask-app",
+      image     = "${aws_ecr_repository.my_flask_app_ecr.repository_url}:latest",
+      cpu       = 256,
+      memory    = 512,
       essential = true,
       portMappings = [
         {
@@ -277,8 +252,8 @@ resource "aws_ecs_task_definition" "my_flask_app_task" {
       logConfiguration = {
         logDriver = "awslogs",
         options = {
-          "awslogs-group"        = aws_cloudwatch_log_group.my_flask_app_log_group.name,
-          "awslogs-region"       = var.aws_region,
+          "awslogs-group"         = aws_cloudwatch_log_group.my_flask_app_log_group.name,
+          "awslogs-region"        = var.aws_region,
           "awslogs-stream-prefix" = "ecs"
         }
       },
@@ -350,13 +325,8 @@ resource "aws_lb_listener" "http_listener" {
   protocol          = "HTTP"
 
   default_action {
-    type = "redirect"
-    redirect {
-      port = "443"
-      protocol = "HTTPS"
-      status_code = "HTTP_301"
-      # Permanent redirect
-    }
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.my_flask_app_tg.arn
   }
 
   tags = {

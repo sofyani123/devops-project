@@ -10,7 +10,7 @@ resource "aws_ecr_repository" "my_flask_app_ecr" {
     scan_on_push = true
   }
 
-  force_delete = true 
+  force_delete = true
 
   tags = {
     Name    = "my-flask-app-ecr-repo"
