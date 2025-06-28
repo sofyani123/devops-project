@@ -1,6 +1,6 @@
-# terraform/outputs.tf (Updated content)
+# terraform/outputs.tf
 
 output "custom_domain_url" {
-  description = "The URL of your application via custom domain (HTTPS)"
-  value       = "devops-project1.click"
+  description = "Load Balancer URL for the Flask application"
+  value       = aws_lb.my_app_alb.dns_name
 }

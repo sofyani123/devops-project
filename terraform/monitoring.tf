@@ -127,9 +127,6 @@ resource "aws_cloudwatch_dashboard" "my_app_dashboard" {
       # You can add more widgets here for other metrics, text, or logs
     ]
   })
-  tags = {
-    Name = "my-flask-app-overview-dashboard"
-  }
 }
 
 # Output the SNS topic ARN for easy reference
