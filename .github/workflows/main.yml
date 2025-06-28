@@ -64,10 +64,10 @@ jobs:
       # Step 6: Deploy to Amazon ECS
       # This command forces a new deployment for the ECS service.
       # ECS will then pull the 'latest' image from ECR and restart tasks with the new image.
-- name: Force new ECS deployment
-  run: |
-    aws ecs update-service \
-      --cluster ${{ env.ECS_CLUSTER_NAME }} \
-      --service ${{ env.ECS_SERVICE_NAME }} \
-      --force-new-deployment \
-      --region ${{ env.AWS_REGION }}
+      - name: Force new ECS deployment
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER_NAME }} \
+            --service ${{ env.ECS_SERVICE_NAME }} \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
