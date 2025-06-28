@@ -16,7 +16,7 @@ resource "aws_sns_topic" "devops_alerts" {
 resource "aws_sns_topic_subscription" "devops_alerts_email_subscription" {
   topic_arn = aws_sns_topic.devops_alerts.arn
   protocol  = "email"
-  endpoint  = "your-email@example.com" # <--- REPLACE WITH YOUR ACTUAL EMAIL ADDRESS
+  endpoint  = "sofyani123@gmail.com" # <--- REPLACE WITH YOUR ACTUAL EMAIL ADDRESS
   # Set confirmation_timeout_in_minutes to avoid manual confirmation issues for automated tests
   # For personal use, confirmation_timeout_in_minutes is less critical, but confirm promptly.
 }
